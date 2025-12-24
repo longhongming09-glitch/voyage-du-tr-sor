@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <title>字林探秘之旅</title>
+    <style>
+        body { font-family: 'SimSun', serif; background-color: #f4e7c7; color: #333; text-align: center; margin: 0; padding: 0; }
+        .stage-intro { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(30, 20, 10, 0.95); color: #f4e7c7; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 3000; }
+        .stage-card { background: #8b4513; padding: 30px; border: 4px double #f4e7c7; border-radius: 20px; width: 80%; max-width: 500px; box-shadow: 0 0 30px rgba(0,0,0,0.5); }
+        #game-container { display: none; max-width: 900px; margin: 20px auto; background: #fff8e8; border: 6px solid #a0522d; padding: 25px; border-radius: 12px; min-height: 85vh; position: relative; box-shadow: 0 10px 40px rgba(0,0,0,0.2); }
+        .task-page { padding: 15px; text-align: left; animation: fadeIn 0.4s; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        .scene-header { font-weight: bold; color: #a0522d; border-bottom: 2px solid #a0522d; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; }
+        .drop-zone { min-width: 100px; min-height: 40px; border: 2px dashed #a0522d; display: inline-flex; align-items: center; justify-content: center; background: #fffaf0; vertical-align: middle; margin: 5px; padding: 2px 10px; border-radius: 4px; font-weight: bold; color: #a0522d; }
+        .tray { display: flex; flex-wrap: wrap; gap: 10px; padding: 15px; background: #eee4cc; border-radius: 8px; justify-content: center; margin: 15px 0; border: 1px solid #d2b48c; }
+        .draggable { padding: 8px 15px; background: #a0522d; color: white; cursor: grab; border-radius: 4px; font-weight: bold; box-shadow: 2px 2px 4px rgba(0,0,0,0.2); }
+        .btn-group { display: flex; justify-content: space-between; margin-top: 30px; border-top: 2px solid #a0522d; padding-top: 20px; }
+        .nav-btn { padding: 10px 20px; background: #8e735d; color: white; border: none; cursor: pointer; border-radius: 4px; }
+        .nav-btn:disabled { background: #ccc; cursor: not-allowed; }
+        .check-btn { padding: 12px 30px; background: #5d8e7c; color: white; border: none; cursor: pointer; font-weight: bold; border-radius: 4px; }
+        .answer-btn { padding: 6px 12px; background: #d4a017; color: white; border: none; cursor: pointer; font-size: 0.8em; border-radius: 4px; font-weight: bold; }
+        #stage-clear { display: none; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 85%; background: white; border: 5px solid #5d8e7c; padding: 30px; z-index: 100; border-radius: 15px; text-align: center; }
+        .clue-box { display: inline-block; width: 70px; height: 90px; line-height: 90px; border: 3px solid #a0522d; margin: 10px; font-size: 2.5em; background: #fff; text-align: center; border-radius: 8px; font-weight: bold; color: #a0522d; }
+        .hidden { display: none !important; }
+        input[type="text"], select { padding: 8px; border: 1px solid #a0522d; border-radius: 4px; outline: none; }
+    </style>
+</head>
+<body>
+
+    <audio id="bgm" loop src="bgm.mp3"></audio>
+    <audio id="snd-click" src="click.mp3"></audio>
+    <audio id="snd-success" src="success.mp3"></audio>
+    <audio id="snd-fail" src="fail.mp3"></audio>
+
+    <div id="start-screen" style="padding-top: 150px;">
+        <h1 style="font-size: 4em; color: #a0522d;">字林探险</h1>
+        <button onclick="initGame()" style="padding:15px 50px; font-size:1.5em; background:#a0522d; color:white; border:none; border-radius:10px; cursor:pointer;">开启探险</button>
+    </div>
+
+    <div id="stage-intro-screen" class="stage-intro hidden">
+        <div class="stage-card">
+            <h1 id="intro-title"></h1>
+            <h2 id="intro-subtitle" style="color:#f4e7c7; opacity:0.8;"></h2>
+            <hr style="border:1px dashed #f4e7c7;">
+            <p id="intro-task" style="font-size:1.1em; line-height:1.6;"></p>
+            <button onclick="playSnd('click'); beginGame();" style="padding:12px 40px; background:#f4e7c7; color:#a0522d; border:none; font-weight:bold; cursor:pointer; border-radius:5px;">开始挑战</button>
+        </div>
+    </div>
+
+    <div id="game-container">
+        <div id="stage-clear">
+            <h2 id="sc-title">挑战成功！</h2>
+            <p id="sc-msg"></p>
+            <div id="sc-info" class="clue-box" style="margin: 20px auto; border-style: dashed;"></div>
+            <button class="check-btn" onclick="playSnd('click'); nextAfterClear();">收下碎片，继续前进</button>
+        </div>
+
+        <div id="page-indicator" style="color: #888; font-weight: bold;">任务 1 / 12</div>
+        <div id="feedback" style="height:30px; font-weight:bold; margin-bottom:10px;"></div>
+
+        <div id="p1" class="task-page">
+            <div class="scene-header"><span>1. 任务描述：有四个人想进入球场，他们分别拿着丙、甲、乙、丁的门票。请按正确顺序让他们进场。</span> <button class="answer-btn" onclick="getHelp('顺序为：甲、乙、丙、丁')">💡 答案</button></div>
+            <p>请按汉字顺序放入对应位置 Remettre dans l'ordre：</p>
+            <div class="tray">
+                <div class="drop-zone" ondrop="drop(event)" ondragover="allow(event)"></div>
+                <div class="drop-zone" ondrop="drop(event)" ondragover="allow(event)"></div>
+                <div class="drop-zone" ondrop="drop(event)" ondragover="allow(event)"></div>
+                <div class="drop-zone" ondrop="drop(event)" ondragover="allow(event)"></div>
+            </div>
+            <div class="tray"><div class="draggable" draggable="true" ondragstart="drag(event)">丙</div><div class="draggable" draggable="true" ondragstart="drag(event)">丁</div><div class="draggable" draggable="true" ondragstart="drag(event)">乙</div><div class="draggable" draggable="true" ondragstart="drag(event)">甲</div></div>
+        </div>
+
+        <div id="p2" class="task-page hidden">
+            <div class="scene-header"><span>2. 进入球场后，你需要找到以下这些人获取信息。请将人物与其描述正确匹配。Trouver des rôles correspondants</span> <button class="answer-btn" onclick="getHelp('运动员、教练、裁判、观众、球迷')">💡 答案</button></div>
+            <p>参加比赛的人：<span class="drop-zone" data-ans="运动员" ondrop="drop(event)" ondragover="allow(event)"></span></p>
+            <p>帮助训练的人：<span class="drop-zone" data-ans="教练" ondrop="drop(event)" ondragover="allow(event)"></span></p>
+            <p>决定输赢的人：<span class="drop-zone" data-ans="裁判" ondrop="drop(event)" ondragover="allow(event)"></span></p>
+            <p>观看比赛的人：<span class="drop-zone" data-ans="观众" ondrop="drop(event)" ondragover="allow(event)"></span></p>
+            <p>喜欢球赛的人：<span class="drop-zone" data-ans="球迷" ondrop="drop(event)" ondragover="allow(event)"></span></p>
+            <div class="tray"><div class="draggable" draggable="true" ondragstart="drag(event)">裁判</div><div class="draggable" draggable="true" ondragstart="drag(event)">球迷</div><div class="draggable" draggable="true" ondragstart="drag(event)">观众</div><div class="draggable" draggable="true" ondragstart="drag(event)">运动员</div><div class="draggable" draggable="true" ondragstart="drag(event)">教练</div></div>
+        </div>
+
+        <div id="p3" class="task-page hidden">
+            <div class="scene-header"><span>3. 比赛结束，你被临时叫去给前三名发奖牌。请将奖牌与名次正确匹配。Trouver des médailles correspondantes</span> <button class="answer-btn" onclick="getHelp('冠军获得金牌，亚军银牌，季军铜牌')">💡 答案</button></div>
+            <p>冠军：<span class="drop-zone" data-ans="金牌" ondrop="drop(event)" ondragover="allow(event)"></span></p>
+            <p>亚军：<span class="drop-zone" data-ans="银牌" ondrop="drop(event)" ondragover="allow(event)"></span></p>
+            <p>季军：<span class="drop-zone" data-ans="铜牌" ondrop="drop(event)" ondragover="allow(event)"></span></p>
+            <div class="tray"><div class="draggable" draggable="true" ondragstart="drag(event)">铜牌</div><div class="draggable" draggable="true" ondragstart="drag(event)">金牌</div><div class="draggable" draggable="true" ondragstart="drag(event)">银牌</div></div>
+        </div>
+
+        <div id="p4" class="task-page hidden">
+            <div class="scene-header"><span>4. 工作人员请你一起写谜语，他们给了你一个谜语："一加一，王"。请将内容写在正确的位置。</span> <button class="answer-btn" onclick="getHelp('一加一是谜面，王是谜底')">💡 答案</button></div>
+            <p>“一加一”是：<input type="text" id="a4-1"></p>
+            <p>“王”字是：<input type="text" id="a4-2"></p>
+        </div>
+
+        <div id="p5" class="task-page hidden">
+            <div class="scene-header"><span>5. 现场有修辞比赛，请为下列句子选择正确的修辞手法。Trouver figure de style </span> <button class="answer-btn" onclick="getHelp('比喻、夸张、拟人、排比')">💡 答案</button></div>
+            <p>1. 弯弯月亮像小船：<select id="a5-1"><option value="">--</option><option>比喻</option><option>夸张</option><option>拟人</option><option>排比</option></select></p>
+            <p>2. 他的笑声几千米外听到：<select id="a5-2"><option value="">--</option><option>比喻</option><option>夸张</option><option>拟人</option><option>排比</option></select></p>
+            <p>3. 星星在眨眼睛：<select id="a5-3"><option value="">--</option><option>比喻</option><option>夸张</option><option>拟人</option><option>排比</option></select></p>
+            <p>4. 家是港湾，家是亲情和温暖，家是有爱在的地方：<select id="a5-4"><option value="">--</option><option>比喻</option><option>夸张</option><option>拟人</option><option>排比</option></select></p>
+        </div>
+
+        <div id="p6" class="task-page hidden">
+            <div class="scene-header"><span>6. 你又参加了词语比赛，请把成语填入句子的正确位置。</span> <button class="answer-btn" onclick="getHelp('不屈不挠、迫不及待、流传至今、失败是成功之母')">💡 答案</button></div>
+            <p>1. 一次次摔倒，一次次爬起来，他<span class="drop-zone" data-ans="不屈不挠" ondrop="drop(event)" ondragover="allow(event)"></span> 的精神感动了大家。</p>
+            <p>2. 我 <span class="drop-zone" data-ans="迫不及待" ondrop="drop(event)" ondragover="allow(event)"></span> 地想见到好朋友。</p>
+            <p>3. 春节吃饺子的习俗一直 <span class="drop-zone" data-ans="流传至今" ondrop="drop(event)" ondragover="allow(event)"></span>。</p>
+            <p>4. 我这次考试没考好，但我相信<span class="drop-zone" data-ans="失败是成功之母" ondrop="drop(event)" ondragover="allow(event)"></span>。</p>
+            <div class="tray"><div class="draggable" draggable="true" ondragstart="drag(event)">流传至今</div><div class="draggable" draggable="true" ondragstart="drag(event)">不屈不挠</div><div class="draggable" draggable="true" ondragstart="drag(event)">失败是成功之母</div><div class="draggable" draggable="true" ondragstart="drag(event)">迫不及待</div></div>
+        </div>
+
+        <div id="p7" class="task-page hidden">
+            <div class="scene-header"><span>7. 你需要知道什么时候风雨才能停下来，你有哪些方法可以知道？Les moyens pour savoir la météo</span> <button class="answer-btn" onclick="getHelp('请写出：看电视，听广播，上网')">💡 答案</button></div>
+            <p>写出三种获知天气的方法：</p>
+            <input type="text" id="a7-1" style="width: 80%" placeholder="utiliser virgule pour séparer les réponses">
+        </div>
+
+        <div id="p8" class="task-page hidden">
+            <div class="scene-header"><span>8. 你成功用手机上网看到了天气预报，但是你发现网上的天气预报变成了一些画，你能看懂吗？</span> <button class="answer-btn" onclick="getHelp('阴、多云、雨、雪、雷阵雨、雨夹雪')">💡 答案</button></div>
+            <p>☁️<span class="drop-zone" data-ans="阴" ondrop="drop(event)" ondragover="allow(event)"></span> ⛅<span class="drop-zone" data-ans="多云" ondrop="drop(event)" ondragover="allow(event)"></span> 🌧️<span class="drop-zone" data-ans="雨" ondrop="drop(event)" ondragover="allow(event)"></span></p>
+            <p>❄️<span class="drop-zone" data-ans="雪" ondrop="drop(event)" ondragover="allow(event)"></span> ⛈️<span class="drop-zone" data-ans="雷阵雨" ondrop="drop(event)" ondragover="allow(event)"></span> 🌨️<span class="drop-zone" data-ans="雨夹雪" ondrop="drop(event)" ondragover="allow(event)"></span></p>
+            <div class="tray"><div class="draggable" draggable="true" ondragstart="drag(event)">阴</div><div class="draggable" draggable="true" ondragstart="drag(event)">雷阵雨</div><div class="draggable" draggable="true" ondragstart="drag(event)">多云</div><div class="draggable" draggable="true" ondragstart="drag(event)">雨夹雪</div><div class="draggable" draggable="true" ondragstart="drag(event)">雪</div><div class="draggable" draggable="true" ondragstart="drag(event)">雨</div></div>
+        </div>
+
+        <div id="p9" class="task-page hidden">
+            <div class="scene-header"><span>9. 你发现雨很快就会停，但晚上还要有一场大雪，你需要再次确认一下当前的温度。手机上显示晚上7点的温度是：-1-3°，这个用中文应该怎么说？</span> <button class="answer-btn" onclick="getHelp('零下一到三摄氏度')">💡 答案</button></div>
+            <p>“-1-3°” 中文读作：</p>
+            <input type="text" id="a9-1" style="width: 260px">
+        </div>
+
+        <div id="p10" class="task-page hidden">
+            <div class="scene-header"><span>10. 壁画上刻着一些文字，他们分别用了哪些造字方法</span> <button class="answer-btn" onclick="getHelp('象形、指事、会意、形声')">💡 答案</button></div>
+            <p>日、山（像画）：<span class="drop-zone" data-ans="象形" ondrop="drop(event)" ondragover="allow(event)"></span> 上、下（加一笔）：<span class="drop-zone" data-ans="指事" ondrop="drop(event)" ondragover="allow(event)"></span></p>
+            <p>休、明（知道意思）：<span class="drop-zone" data-ans="会意" ondrop="drop(event)" ondragover="allow(event)"></span> 清、妈（形旁+声旁）：<span class="drop-zone" data-ans="形声" ondrop="drop(event)" ondragover="allow(event)"></span></p>
+            <div class="tray"><div class="draggable" draggable="true" ondragstart="drag(event)">指事</div><div class="draggable" draggable="true" ondragstart="drag(event)">形声</div><div class="draggable" draggable="true" ondragstart="drag(event)">象形</div><div class="draggable" draggable="true" ondragstart="drag(event)">会意</div></div>
+        </div>
+
+        <div id="p11" class="task-page hidden">
+            <div class="scene-header"><span>11. 你发现这些文字旁边出现了很多一样的汉字，他们好像有不同的读音，你知道他们正确的读音是什么吗？</span> <button class="answer-btn" onclick="getHelp('更改读geng1，更好读geng4')">💡 答案</button></div>
+            <p>1. “更（  ）改、更（   ）换”：<label><input type="radio" name="g1" value="1"> gēng</label> <label><input type="radio" name="g1" value="4"> gèng</label></p>
+            <p>2. “更（   ）好、更（    ）加”：<label><input type="radio" name="g2" value="1"> gēng</label> <label><input type="radio" name="g2" value="4"> gèng</label></p>
+        </div>
+
+        <div id="p12" class="task-page hidden">
+            <div class="scene-header"><span>12. 📜 你继续往前走，你发现地上上放着一本字典📕和一张字条，📜上面写着：三更龟甲。你知道“更”的读音，不认识“龟”这个字，你需要用字典查出这两个字的意思</span> <button class="answer-btn" onclick="getHelp('更查音序，龟查部首')">💡 答案</button></div>
+            <p>查“更”字，要用：<select id="m1"><option value="">--</option><option value="y">音序检字法</option><option value="b">部首检字法</option></select></p>
+            <p>查“龟”字，要用：<select id="m2"><option value="">--</option><option value="y">音序检字法</option><option value="b">部首检字法</option></select></p>
+        </div>
+
+        <div id="final-page" class="task-page hidden" style="text-align:center;">
+            <h1>🏆 探险终点</h1>
+            <div id="final-clues"></div>
+            <h2 id="final-msg" style="color:#a0522d; margin-top:30px;"></h2>
+            <button onclick="location.reload()" class="check-btn">重启探险 Reprendre le voyage</button>
+        </div>
+
+        <div class="btn-group" id="nav-group">
+            <button class="nav-btn" onclick="playSnd('click'); changeTask(-1)" id="prevBtn" disabled>上一步</button>
+            <button class="check-btn" onclick="validate()">验证答案 Vérifier les réponses</button>
+            <button class="nav-btn" onclick="playSnd('click'); changeTask(1)" id="nextBtn" disabled>下一步</button>
+        </div>
+    </div>
+
+    <script>
+        let cur = 1;
+        let clues = [null, null, null, null];
+        let usedHelp = Array(12).fill(false);
+
+        function playSnd(id) {
+            const s = document.getElementById('snd-' + id);
+            if(s) { s.currentTime = 0; s.play().catch(()=>{}); }
+        }
+
+        function initGame() {
+            document.getElementById('bgm').play().catch(()=>{});
+            playSnd('click');
+            showIntro(1);
+        }
+
+        const stageData = {
+            1: { title: "第一大关：热血球场", sub: "你来到篮球比赛现场，需要完成三个任务才能获得关键信息", task: "排序、识别角色与颁发奖牌。" },
+            4: { title: "第二大关：灯笼节", sub: "你来到了一个挂满灯笼的地方，这里正在举办文化活动，需要完成三个任务才能获得关键信息", task: "拆解灯谜，掌握修辞与成语。" },
+            7: { title: "第三大关：风雨交加的夜晚", sub: "你在去下一个关卡的路上，突然刮起了大风，下起了暴雨，你不得不找个地方躲雨。", task: "获取气象、识别符号与读法。" },
+            10: { title: "第四大关：洞穴探秘", sub: "你进入洞穴躲避风雪，发现洞穴深处有微光，走近一看，是一些发光的壁画，上面写着一些文字。", task: "造字溯源、多音字与检索法。" }
+        };
+
+        function showIntro(s) {
+            document.getElementById('start-screen').classList.add('hidden');
+            document.getElementById('game-container').style.display = 'none';
+            document.getElementById('stage-intro-screen').classList.remove('hidden');
+            document.getElementById('intro-title').innerText = stageData[s].title;
+            document.getElementById('intro-subtitle').innerText = "场景：" + stageData[s].sub;
+            document.getElementById('intro-task').innerText = "目标：" + stageData[s].task;
+        }
+
+        function beginGame() {
+            document.getElementById('stage-intro-screen').classList.add('hidden');
+            document.getElementById('game-container').style.display = 'block';
+        }
+
+        function getHelp(msg) {
+            playSnd('click');
+            alert("【天书】：\n" + msg);
+            usedHelp[cur - 1] = true;
+            document.getElementById('nextBtn').disabled = false;
+        }
+
+        function validate() {
+            let ok = false;
+            const f = document.getElementById('feedback');
+
+            // --- 新增：每个任务对应的鼓励语字典 ---
+            const encouragementMap = {
+                1: "✅ 检票成功！你成功维持了赛场的秩序",
+                2: "✅ 识别准确！球场上的人际关系都难不倒你！",
+                3: "✅ 颁奖完毕！球员们拿到了他们的奖牌！他们把下一站目的地告诉了你。",
+                4: "✅ 破解灯谜！工作人员非常感谢你的帮忙，告诉你在这里你至少要参加两个比赛才能拿到线索！",
+                5: "✅ 修辞大师！你成功完成了第一个比赛！",
+                6: "✅ 妙笔生花！第二个比赛挑战成功，你前往下一个目的地。",
+                7: "✅ 智慧生存！你很擅长在困境中寻找信息！",
+                8: "✅ 气象专家！现在你风雨无畏了！你觉得马上出发去前面的洞穴里躲避风雪。",
+                9: "✅ 读法准确！你穿好衣服做好防寒保暖的工作，出发！",
+                10: "✅ 溯源成功！壁画背后的造字法被你识破了！",
+                11: "✅ 辨音高手！多音字再也迷惑不了你！",
+                12: "✅ 检字小达人！你已经学会如何使用字典了！"
+            };
+
+            if([1, 2, 3, 6, 8, 10].includes(cur)) {
+                let allFilled = true;
+                let allCorrect = true;
+                document.querySelectorAll(`#p${cur} .drop-zone`).forEach(z => {
+                    if(!z.innerText || z.innerText.trim() === "") allFilled = false;
+                    if(cur === 1) { }
+                    else if(z.innerText !== z.dataset.ans) allCorrect = false;
+                });
+                
+                if(cur === 1) {
+                    let r = ""; document.querySelectorAll('#p1 .drop-zone').forEach(z => r += z.innerText);
+                    ok = (r === "甲乙丙丁");
+                } else {
+                    ok = allFilled && allCorrect;
+                }
+            } 
+            else if(cur === 4) {
+                let v1 = document.getElementById('a4-1').value.trim();
+                let v2 = document.getElementById('a4-2').value.trim();
+                if(v1 !== "" && v2 !== "" && v1.includes("面") && v2.includes("底")) ok = true;
+            } 
+            else if(cur === 7) {
+                let val = document.getElementById('a7-1').value.trim();
+                let inputWords = val.split(/[，, ；;、\s]+/).filter(w => w !== "");
+                let required = ["看电视", "听广播", "上网"];
+                if (inputWords.length === 3) {
+                    ok = required.every(word => inputWords.includes(word)) && 
+                         inputWords.every(word => required.includes(word));
+                }
+            } 
+            else if(cur === 9) {
+                let v = document.getElementById('a9-1').value.trim();
+                if(v.includes("零下") && (v.includes("三") || v.includes("3"))) ok = true;
+            }
+            else if(cur === 5) {
+                let s1 = document.getElementById('a5-1').value;
+                let s2 = document.getElementById('a5-2').value;
+                let s3 = document.getElementById('a5-3').value;
+                let s4 = document.getElementById('a5-4').value;
+                if(s1==="比喻" && s2==="夸张" && s3==="拟人" && s4==="排比") ok = true;
+            } else if(cur === 12) {
+                if(document.getElementById('m1').value==="y" && document.getElementById('m2').value==="b") ok = true;
+            }
+            else if(cur === 11) {
+                let r1 = document.querySelector('input[name="g1"]:checked')?.value;
+                let r2 = document.querySelector('input[name="g2"]:checked')?.value;
+                if(r1 === "1" && r2 === "4") ok = true;
+            }
+
+            if(ok) {
+                playSnd('success');
+                // 使用上面定义的鼓励语
+                f.innerText = encouragementMap[cur]; 
+                f.style.color = "green";
+                document.getElementById('nextBtn').disabled = false;
+                if([3, 6, 9, 12].includes(cur)) checkStageClear();
+            } else {
+                playSnd('fail');
+                f.innerText = "❌ 还没破解成功哦，再检查一下？"; f.style.color = "red";
+            }
+        }
+
+        function checkStageClear() {
+            let g = Math.floor((cur-1)/3);
+            let cheated = usedHelp[g*3] || usedHelp[g*3+1] || usedHelp[g*3+2];
+            if(!cheated) {
+                const map = ["老师", "有", "盲", "盒"];
+                clues[g] = map[g];
+                document.getElementById('sc-info').innerText = map[g];
+                document.getElementById('sc-msg').innerText = "太棒了！你凭借智慧获得了线索。Bravo！Vous avez obtenu un indice";
+            } else {
+                clues[g] = null;
+                document.getElementById('sc-info').innerText = "？";
+                document.getElementById('sc-msg').innerText = "曾求助天书，本阶段碎片无法获得。Malheureusement,comme vous avez consulté des réponses, vous ne pouvez pas obtenir l'indice ";
+            }
+            document.getElementById('stage-clear').style.display = 'block';
+        }
+
+        function nextAfterClear() {
+            document.getElementById('stage-clear').style.display = 'none';
+            if(cur < 12) {
+                if([3, 6, 9].includes(cur)) showIntro(cur + 1);
+                else changeTask(1);
+            } else { showFinal(); }
+        }
+
+        function changeTask(step) {
+            document.getElementById(`p${cur}`).classList.add('hidden');
+            cur += step;
+            document.getElementById(`p${cur}`).classList.remove('hidden');
+            document.getElementById('page-indicator').innerText = `任务 ${cur} / 12`;
+            document.getElementById('feedback').innerText = "";
+            document.getElementById('nextBtn').disabled = true;
+            document.getElementById('prevBtn').disabled = (cur === 1);
+        }
+
+        function showFinal() {
+            document.getElementById('nav-group').classList.add('hidden');
+            const box = document.getElementById('final-clues');
+            box.innerHTML = ""; // 清空之前的内容防止重复
+            clues.forEach(c => { box.innerHTML += `<div class="clue-box">${c ? c : "?"}</div>`; });
+            document.getElementById('final-msg').innerText = clues.filter(c=>c).length === 4 ? "终极秘密：老师有盲盒！" : "探险结束，真相仍未大白。";
+            document.getElementById('final-page').classList.remove('hidden');
+        }
+
+        function allow(ev) { ev.preventDefault(); }
+        function drag(ev) { ev.dataTransfer.setData("text", ev.target.innerText); }
+        function drop(ev) { 
+            ev.preventDefault(); 
+            ev.target.innerText = ev.dataTransfer.getData("text"); 
+            playSnd('click');
+        }
+    </script>
+</body>
+</html>
